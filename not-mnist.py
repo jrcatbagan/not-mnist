@@ -5,7 +5,6 @@ from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 import numpy
 import os
-from PIL import Image
 from random import shuffle
 
 DATASET_ROOT = './notMNIST_large'
