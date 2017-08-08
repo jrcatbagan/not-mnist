@@ -3,112 +3,76 @@
 from __future__ import print_function
 from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
-import numpy
+import numpy as np
 import os
 from random import shuffle
+import pickle
 
-DATASET_ROOT = './notMNIST_large'
-IMAGE_PIXEL_WIDTH = 28
-IMAGE_PIXEL_HEIGHT = 28
-NUMBER_OF_SETS_PER_LABEL = 100
-PIXEL_DEPTH = 255.0
-
-TRAINING_SET_PERCENT_SIZE_PER_LABEL = 0.1
-TEST_SET_PERCENT_SIZE_PER_LABEL = 0.0025
+ROOT_DIRECTORY              = '.'
+PICKLED_DATASET_DIRECTORY   = 'pickled_dataset'
+IMAGE_PIXEL_WIDTH           = 28
+IMAGE_PIXEL_HEIGHT          = 28
 
 if __name__ == '__main__':
-    # Obtain all the dataset directories
-    dataset_directory = sorted(os.listdir(DATASET_ROOT))
+    pickled_dataset_directory_path = os.path.join(ROOT_DIRECTORY,\
+            PICKLED_DATASET_DIRECTORY)
 
-    # Initialize the variable that will keep track of the total size (i.e.
-    # the number of training examples) of the training set
+    pickled_dataset_directory_list = os.listdir(pickled_dataset_directory_path)
+
     training_set_size = 0
-    # Initialize the variable that will keep track of the total size (i.e.
-    # the number of test examples) of the test set
-    test_set_size = 0
-
-    print("Computing the number of training sets to obtain for each label")
-
-    label_training_set_lengths = {}
-
-    for dataset_directory_index in dataset_directory:
-        directory_path = os.path.join(DATASET_ROOT, dataset_directory_index)
-        length = TRAINING_SET_PERCENT_SIZE_PER_LABEL *\
-                len(os.listdir(directory_path))
-        length = int(length)
-        label_training_set_lengths[dataset_directory_index] = length
-        training_set_size += length
-
-    print("Computing the number of test sets to obtain for each label")
-
-    label_test_set_lengths = {}
-    label_test_set_starting_indices = {}
-
-    for dataset_directory_index in dataset_directory:
-        directory_path = os.path.join(DATASET_ROOT, dataset_directory_index)
-        length = TEST_SET_PERCENT_SIZE_PER_LABEL *\
-                len(os.listdir(directory_path))
-        length = int(length)
-        label_test_set_lengths[dataset_directory_index] = length
-        label_test_set_starting_indices[dataset_directory_index] =\
-                label_training_set_lengths[dataset_directory_index]
-        test_set_size += length
-
-    print("Initializing the training set")
-
-    # Initialize the training set matrix
-    training_set = numpy.ndarray((training_set_size,\
-            IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
-    training_labels = numpy.ndarray((training_set_size), dtype=int)
-
     training_set_index = 0
 
-    print("Initializing the test set")
+    training_set = np.ndarray((0))
+    training_labels = np.ndarray((0))
 
-    test_set = numpy.ndarray((test_set_size,\
-            IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
-    test_labels = numpy.ndarray((test_set_size), dtype=int)
-
+    test_set_size = 0
     test_set_index = 0
 
-    # Index all the dataset directories
-    for dataset_directory_index in dataset_directory:
-        directory_path = os.path.join(DATASET_ROOT, dataset_directory_index)
-        # Obtain the dataset files within the currently indexed dataset
-        # directory
-        print("Obtaining file index from the directory of label",\
-                dataset_directory_index)
-        dataset_files = os.listdir(directory_path)
+    test_set = np.ndarray((0))
+    test_labels = np.ndarray((0))
 
-        # Randomize the dataset files
-        print("Shuffling file index for label", dataset_directory_index)
-        shuffle(dataset_files)
+    for pickled_dataset_directory_index in pickled_dataset_directory_list:
+        pickled_dataset_file_path = os.path.join(pickled_dataset_directory_path,\
+                pickled_dataset_directory_index, pickled_dataset_directory_index +\
+                '_train.pickle')
+        pickled_dataset_file_handle = open(pickled_dataset_file_path, 'rb')
 
-        print("Curating the training set for label", dataset_directory_index)
+        sub_training_set = pickle.load(pickled_dataset_file_handle)
 
-        for dataset_files_index in\
-                range(label_training_set_lengths[dataset_directory_index]):
-            image_file = ndimage.imread(os.path.join(directory_path,\
-                    dataset_files[dataset_files_index])).astype(float)
-            image_file = ((image_file - PIXEL_DEPTH) / 2) / PIXEL_DEPTH
+        pickled_dataset_file_handle.close()
 
-            training_set[training_set_index, :] = image_file.flatten()
-            training_labels[training_set_index] = ord(dataset_directory_index) -\
-                    65
+        training_set_size += len(sub_training_set)
+
+        training_set = np.resize(training_set, (training_set_size,\
+                IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
+        training_labels = np.resize(training_labels, (training_set_size))
+
+        for set_index in sub_training_set:
+            training_set[training_set_index, :] = set_index
+            training_labels[training_set_index] =\
+                    int(ord(pickled_dataset_directory_index) - 65)
             training_set_index += 1
 
-        print("Curating the test set for label", dataset_directory_index)
+    for pickled_dataset_directory_index in pickled_dataset_directory_list:
+        pickled_dataset_file_path = os.path.join(pickled_dataset_directory_path,\
+                pickled_dataset_directory_index, pickled_dataset_directory_index +\
+                '_test.pickle')
+        pickled_dataset_file_handle = open(pickled_dataset_file_path, 'rb')
 
-        for dataset_files_index in\
-                range(label_training_set_lengths[dataset_directory_index],\
-                label_training_set_lengths[dataset_directory_index] +\
-                label_test_set_lengths[dataset_directory_index]):
-            image_file = ndimage.imread(os.path.join(directory_path,\
-                    dataset_files[dataset_files_index])).astype(float)
-            image_file = ((image_file - PIXEL_DEPTH) / 2) / PIXEL_DEPTH
+        sub_test_set = pickle.load(pickled_dataset_file_handle)
 
-            test_set[test_set_index, :] = image_file.flatten()
-            test_labels[test_set_index] = ord(dataset_directory_index) - 65
+        pickled_dataset_file_handle.close()
+
+        test_set_size += len(sub_test_set)
+
+        test_set = np.resize(test_set, (test_set_size,\
+                IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
+        test_labels = np.resize(test_labels, (test_set_size))
+
+        for set_index in sub_test_set:
+            test_set[test_set_index, :] = set_index
+            test_labels[test_set_index] =\
+                    int(ord(pickled_dataset_directory_index) - 65)
             test_set_index += 1
 
     print("Training the Logistic Regression model")
@@ -117,6 +81,20 @@ if __name__ == '__main__':
     logistic = LogisticRegression()
     # Train the Logistic Regression model with the training set
     logistic.fit(training_set, training_labels)
+
+    positive_results = 0
+
+    print("Computing accuracy using the training set")
+
+    for training_set_index in range(training_set_size):
+        prediction = logistic.predict(training_set[training_set_index, :].reshape(1, -1))
+
+        if prediction[0] == training_labels[training_set_index]:
+            positive_results += 1
+
+    accuracy = (1.0 * positive_results) / training_set_size
+
+    print("The accuracy of the model on the training set is: ", accuracy)
 
     positive_results = 0
 
@@ -130,4 +108,4 @@ if __name__ == '__main__':
 
     accuracy = (1.0 * positive_results) / test_set_size
 
-    print("The accuracy of the model is: ", accuracy)
+    print("The accuracy of the model on the test set is: ", accuracy)
