@@ -22,113 +22,183 @@ PERCENT_SIZE_TRAINING_SET_PER_LABEL     = 0.15
 PERCENT_SIZE_VALIDATION_SET_PER_LABEL   = 0.0
 PERCENT_SIZE_TEST_SET_PER_LABEL         = 0.05
 
-if __name__ == "__main__":
-    image_dataset_directory_status = os.path.exists(os.path.join(ROOT_DIRECTORY,\
-            IMAGE_DATASET_DIRECTORY))
+training_set_size_per_label = {}
+validation_set_size_per_label = {}
+test_set_size_per_label = {}
 
+training_set_size_total = 0
+validation_set_size_total = 0
+test_set_size_total = 0
+
+training_set_index = 0
+validation_set_index = 0
+test_set_index = 0
+
+dataset = {}
+
+if __name__ == "__main__":
     # Check if the image dataset directory exists
     if not os.path.exists(os.path.join(ROOT_DIRECTORY, IMAGE_DATASET_DIRECTORY)):
         print("The image dataset does not exist.  This must be resolved before\
                 continuing")
         sys.exit(1)
 
-    # Create the directory where the 'pickled' files will be store, if it does
-    # not exist yet that is
-    if not os.path.exists(os.path.join(ROOT_DIRECTORY,\
-            PICKLED_DATASET_DIRECTORY)):
-        os.makedirs(os.path.join(ROOT_DIRECTORY,PICKLED_DATASET_DIRECTORY))
-
     # Get a list of the directories that correspond to the different labels
     # and their associated dataset image files
-    image_dataset_directory_list = os.listdir(os.path.join(ROOT_DIRECTORY,\
+    dataset_directory_list = os.listdir(os.path.join(ROOT_DIRECTORY,\
             IMAGE_DATASET_DIRECTORY))
 
-    print("Pickling the datasets")
+    print("Computing sizes for the training, validation, and test sets")
+
+    for dataset_directory_index in dataset_directory_list:
+        # Compute the path to the dataset for the current label index
+        dataset_directory_path = os.path.join(ROOT_DIRECTORY,\
+                IMAGE_DATASET_DIRECTORY, dataset_directory_index)
+        # Get the total size of the dataset
+        dataset_size = len(os.listdir(dataset_directory_path))
+
+        # Compute the number of samples to use for the training set for the
+        # currently indexed label
+        training_set_size = PERCENT_SIZE_TRAINING_SET_PER_LABEL *\
+                dataset_size
+        # Track the above computed training set size for the current label
+        training_set_size_per_label[dataset_directory_index] =\
+                int(training_set_size)
+        # Update the total size of the training set accordingly
+        training_set_size_total += int(training_set_size)
+
+        # Compute the number of samples to use for the validation set for the
+        # currently indexed label
+        validation_set_size = PERCENT_SIZE_VALIDATION_SET_PER_LABEL *\
+                dataset_size
+        # Track the above computed validation set size for the current label
+        validation_set_size_per_label[dataset_directory_index] =\
+                int(validation_set_size)
+        # Update the total size of the validation set accordingly
+        validation_set_size_total += int(validation_set_size)
+
+        # Compute the number of samples to use for the test set for the
+        # currently indexed label
+        test_set_size = PERCENT_SIZE_TEST_SET_PER_LABEL * dataset_size
+        # Track the above computed test set size for the current label
+        test_set_size_per_label[dataset_directory_index] = int(test_set_size)
+        # Update the total size of the test set accordingly
+        test_set_size_total += int(test_set_size)
+
+    print("Initializing the dataset structures")
+    training_set = np.ndarray((training_set_size_total, IMAGE_PIXEL_WIDTH *\
+            IMAGE_PIXEL_HEIGHT))
+    training_labels = np.ndarray((training_set_size_total))
+
+    validation_set = np.ndarray((validation_set_size_total, IMAGE_PIXEL_WIDTH *\
+            IMAGE_PIXEL_HEIGHT))
+    validation_labels = np.ndarray((validation_set_size_total))
+
+    test_set = np.ndarray((test_set_size_total, IMAGE_PIXEL_WIDTH *\
+            IMAGE_PIXEL_HEIGHT))
+    test_labels = np.ndarray((test_set_size_total))
+
+    print("Curating the datasets")
+
     # For each label, create the appropriate 'pickled' files from the image
     # dataset
-    for directory_index in image_dataset_directory_list:
+    for dataset_directory_index in dataset_directory_list:
         # For the current label, obtain the path to the label's image dataset
-        image_dataset_directory_path = os.path.join(ROOT_DIRECTORY,\
-                IMAGE_DATASET_DIRECTORY, directory_index)
-        # Compute the number of images to extract based on a percentage of the
-        # total number of images for the current label
-        image_dataset_training_length = PERCENT_SIZE_TRAINING_SET_PER_LABEL *\
-                len(os.listdir(image_dataset_directory_path))
-        image_dataset_training_length = int(image_dataset_training_length)
-        # Get a list of all the image dataset files for the current label
-        image_dataset_files = os.listdir(image_dataset_directory_path)
+        dataset_directory_path = os.path.join(ROOT_DIRECTORY,\
+                IMAGE_DATASET_DIRECTORY, dataset_directory_index)
 
-        # Initialize the structure for the images of the current label to be
-        # used as the training set.  The first dimension are the indices to the
-        # images and the second dimension are the image pixel matrix flattened.
-        training_set = np.ndarray((image_dataset_training_length,\
-                IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
+        # Get a list of the dataset image files of the currently indexed label
+        dataset_image_files = os.listdir(dataset_directory_path)
 
-        image_dataset_test_length = PERCENT_SIZE_TEST_SET_PER_LABEL *\
-                len(os.listdir(image_dataset_directory_path))
-        image_dataset_test_length = int(image_dataset_test_length)
-        test_set = np.ndarray((image_dataset_test_length,\
-                IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT))
+        print("Curating the dataset for label", dataset_directory_path)
 
-        # For each image dataset file of the current label, store it into the
-        # previously created structures appropriately
-        for image_dataset_files_index in range(image_dataset_training_length):
-            # Get the path to the currently indexed image dataset file of the
-            # currently indexed label
-            image_dataset_file = ndimage.imread(os.path.join(\
-                    image_dataset_directory_path,\
-                    image_dataset_files[image_dataset_files_index])).astype(float)
-            # Read in the currently indexed image dataset file and normalize it
-            image_dataset_file = ((image_dataset_file - IMAGE_PIXEL_DEPTH) / 2) /\
-                    IMAGE_PIXEL_DEPTH
+        dataset_base_index = 0
 
-            # Store the normalized image dataset file
-            training_set[image_dataset_files_index,:] =\
-                    image_dataset_file.flatten()
-
-        for image_dataset_files_index in range(image_dataset_training_length,\
-                image_dataset_training_length + image_dataset_test_length):
+        for dataset_image_index in\
+                range(training_set_size_per_label[dataset_directory_index]):
             try:
-                image_dataset_file = ndimage.imread(os.path.join(\
-                        image_dataset_directory_path,\
-                        image_dataset_files[image_dataset_files_index])).astype(float)
-                image_dataset_file = ((image_dataset_file - IMAGE_PIXEL_DEPTH) / 2) /\
-                        IMAGE_PIXEL_DEPTH
-                test_set[image_dataset_files_index - image_dataset_training_length, :] =\
-                        image_dataset_file.flatten()
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
             except OSError:
-                pass
+                dataset_base_index += 1
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
 
+            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+                    IMAGE_PIXEL_DEPTH
+            training_set[training_set_index, :] = dataset_image.flatten()
+            training_labels[training_set_index] = ord(dataset_directory_index)\
+                    - 65
+            training_set_index += 1
 
-        pickled_dataset_directory_path = os.path.join(ROOT_DIRECTORY,\
-                PICKLED_DATASET_DIRECTORY, directory_index)
-        os.makedirs(pickled_dataset_directory_path, exist_ok=True)
-        # Get the path to the 'pickled' file where the training set of the
-        # current label will be stored
-        pickled_dataset_file_path = os.path.join(pickled_dataset_directory_path,\
-                directory_index + '_train.pickle')
+        dataset_base_index +=\
+                training_set_size_per_label[dataset_directory_index]
 
-        pickled_dataset_file_handle = open(pickled_dataset_file_path, 'wb')
+        for dataset_image_index in\
+                range(validation_set_size_per_label[dataset_directory_index]):
+            try:
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
+            except OSError:
+                dataset_base_index += 1
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
 
-        print("Storing the training set for the label",\
-                directory_index)
-        pickle.dump(training_set, pickled_dataset_file_handle,\
-                pickle.HIGHEST_PROTOCOL)
+            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+                    IMAGE_PIXEL_DEPTH
+            validation_set[validation_set_index, :] = dataset_image.flatten()
+            validation_labels[validation_set_index] =\
+                    ord(dataset_directory_index) - 65
+            validation_set_index += 1
 
-        pickled_dataset_file_handle.flush()
+        dataset_base_index +=\
+                validation_set_size_per_label[dataset_directory_index]
 
-        pickled_dataset_file_handle.close()
+        for dataset_image_index in\
+                range(test_set_size_per_label[dataset_directory_index]):
+            try:
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
+            except OSError:
+                dataset_base_index += 1
+                dataset_image = ndimage.imread(os.path.join(\
+                        dataset_directory_path,\
+                        dataset_image_files[dataset_base_index +\
+                        dataset_image_index])).astype(float)
 
-        pickled_dataset_file_path = os.path.join(pickled_dataset_directory_path,\
-                directory_index + '_test.pickle')
+            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+                    IMAGE_PIXEL_DEPTH
+            test_set[test_set_index, :] = dataset_image.flatten()
+            test_labels[test_set_index] = ord(dataset_directory_index) - 65
+            test_set_index += 1
 
-        pickled_dataset_file_handle = open(pickled_dataset_file_path, 'wb')
+    print("Unifying the training, validation, and test sets")
 
-        print("Storing the test set for the label",\
-                directory_index)
-        pickle.dump(test_set, pickled_dataset_file_handle,\
-                pickle.HIGHEST_PROTOCOL)
+    dataset['training_set'] = training_set
+    dataset['training_labels'] = training_labels
+    dataset['validation_set'] = validation_set
+    dataset['validation_labels'] = validation_labels
+    dataset['test_set'] = test_set
+    dataset['test_labels'] = test_labels
 
-        pickled_dataset_file_handle.flush()
+    print("Storing the datasets into a 'pickle' file")
 
-        pickled_dataset_file_handle.close()
+    pickle_file_path = os.path.join(ROOT_DIRECTORY, 'dataset.pickle')
+
+    pickle_file_handle = open(pickle_file_path, 'wb')
+
+    pickle.dump(dataset, pickle_file_handle, pickle.HIGHEST_PROTOCOL)
+
+    pickle_file_handle.flush()
+
+    pickle_file_handle.close()
