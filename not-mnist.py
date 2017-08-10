@@ -9,9 +9,6 @@ from random import shuffle
 import pickle
 
 ROOT_DIRECTORY              = '.'
-PICKLED_DATASET_DIRECTORY   = 'pickled_dataset'
-IMAGE_PIXEL_WIDTH           = 28
-IMAGE_PIXEL_HEIGHT          = 28
 
 if __name__ == '__main__':
     pickle_file_path = os.path.join(ROOT_DIRECTORY, 'dataset.pickle')
