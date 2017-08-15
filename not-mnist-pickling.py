@@ -5,7 +5,6 @@
 
 #-------------------------------------------------------------------------------
 # Imports
-from __future__ import print_function
 import pickle
 import numpy as np
 import os
@@ -19,8 +18,9 @@ IMAGE_PIXEL_WIDTH                       = 28
 IMAGE_PIXEL_HEIGHT                      = 28
 IMAGE_PIXEL_DEPTH                       = 255.0
 PERCENT_SIZE_TRAINING_SET_PER_LABEL     = 0.15
-PERCENT_SIZE_VALIDATION_SET_PER_LABEL   = 0.0
+PERCENT_SIZE_VALIDATION_SET_PER_LABEL   = 0.05
 PERCENT_SIZE_TEST_SET_PER_LABEL         = 0.05
+NUMBER_OF_CLASSES                       = 10
 
 training_set_size_per_label = {}
 validation_set_size_per_label = {}
@@ -88,15 +88,16 @@ if __name__ == "__main__":
     print("Initializing the dataset structures")
     training_set = np.ndarray((training_set_size_total, IMAGE_PIXEL_WIDTH *\
             IMAGE_PIXEL_HEIGHT))
-    training_labels = np.ndarray((training_set_size_total))
+    training_labels = np.ndarray((training_set_size_total, NUMBER_OF_CLASSES))
 
     validation_set = np.ndarray((validation_set_size_total, IMAGE_PIXEL_WIDTH *\
             IMAGE_PIXEL_HEIGHT))
-    validation_labels = np.ndarray((validation_set_size_total))
+    validation_labels = np.ndarray((validation_set_size_total,\
+            NUMBER_OF_CLASSES))
 
     test_set = np.ndarray((test_set_size_total, IMAGE_PIXEL_WIDTH *\
             IMAGE_PIXEL_HEIGHT))
-    test_labels = np.ndarray((test_set_size_total))
+    test_labels = np.ndarray((test_set_size_total, NUMBER_OF_CLASSES))
 
     print("Curating the datasets")
 
@@ -131,8 +132,9 @@ if __name__ == "__main__":
             dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
                     IMAGE_PIXEL_DEPTH
             training_set[training_set_index, :] = dataset_image.flatten()
-            training_labels[training_set_index] = ord(dataset_directory_index)\
-                    - 65
+            training_labels[training_set_index, :] =\
+                    np.eye(1, NUMBER_OF_CLASSES, ord(dataset_directory_index)\
+                    - 65).reshape(-1)
             training_set_index += 1
 
         dataset_base_index +=\
@@ -155,8 +157,9 @@ if __name__ == "__main__":
             dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
                     IMAGE_PIXEL_DEPTH
             validation_set[validation_set_index, :] = dataset_image.flatten()
-            validation_labels[validation_set_index] =\
-                    ord(dataset_directory_index) - 65
+            validation_labels[validation_set_index, :] =\
+                    np.eye(1, NUMBER_OF_CLASSES,\
+                    ord(dataset_directory_index) - 65).reshape(-1)
             validation_set_index += 1
 
         dataset_base_index +=\
@@ -179,7 +182,9 @@ if __name__ == "__main__":
             dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
                     IMAGE_PIXEL_DEPTH
             test_set[test_set_index, :] = dataset_image.flatten()
-            test_labels[test_set_index] = ord(dataset_directory_index) - 65
+            test_labels[test_set_index, :] =\
+                    np.eye(1, NUMBER_OF_CLASSES,\
+                    ord(dataset_directory_index) - 65).reshape(-1)
             test_set_index += 1
 
     print("Unifying the training, validation, and test sets")
