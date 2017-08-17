@@ -3,9 +3,10 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import os
+import random
 
 ROOT_DIRECTORY     = '.'
-TRAINING_ITERATIONS = 50000
+TRAINING_ITERATIONS = 2000000
 TRAINING_BATCH_SIZE = 256
 IMAGE_PIXEL_WIDTH   = 28
 IMAGE_PIXEL_HEIGHT  = 28
@@ -25,7 +26,7 @@ if __name__ == "__main__":
     # Initialize the structure used for the inputs
     inputs = tf.placeholder(tf.float32, [None, number_of_pixels])
     # Initialize the structure used for the weight parameters
-    W = tf.Variable(tf.zeros([number_of_pixels, 10]))
+    W = tf.Variable(tf.truncated_normal([number_of_pixels, 10], stddev=0.1))
     # Initialize the structure used for the bias parameters
     b = tf.Variable(tf.zeros([10]))
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     cross_entropy = tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual * tf.log(outputs_prediction),\
             reduction_indices=[1])))
 
-    train_step = tf.train.GradientDescentOptimizer(0.005).minimize(cross_entropy)
+    train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
 
     init = tf.global_variables_initializer()
 
@@ -52,32 +53,21 @@ if __name__ == "__main__":
     training_set_length = len(dataset['training_set'])
     training_set_index = 0
 
+    dataset_index_list = [n for n in range(training_set_length)]
+
+    random.shuffle(dataset_index_list)
     for iteration_index in range(TRAINING_ITERATIONS):
-        if (training_set_index + TRAINING_BATCH_SIZE) < training_set_length:
-            batch_x[:,:] =\
-                    dataset['training_set'][training_set_index:\
-                    training_set_index + TRAINING_BATCH_SIZE,:]
-            batch_y[:,:] =\
-                    dataset['training_labels'][training_set_index:\
-                    training_set_index + TRAINING_BATCH_SIZE,:]
-            training_set_index += TRAINING_BATCH_SIZE
-        else:
-            n = training_set_length - training_set_index
-            batch_x[:n, :] =\
-                    dataset['training_set'][training_set_index:\
-                    training_set_length, :]
-            batch_y[:n, :] =\
-                    dataset['training_labels'][training_set_index:\
-                    training_set_length, :]
+        if training_set_index >= TRAINING_BATCH_SIZE:
             training_set_index = 0
 
-            batch_x[n:, :] =\
-                    dataset['training_set'][training_set_index:\
-                    TRAINING_BATCH_SIZE - n, :]
-            batch_y[n:, :] =\
-                    dataset['training_labels'][training_set_index:\
-                    TRAINING_BATCH_SIZE - n, :]
-            training_set_index += TRAINING_BATCH_SIZE - n
+        for batch_index in range(TRAINING_BATCH_SIZE):
+            batch_x[batch_index, :] =\
+                    dataset['training_set'][dataset_index_list[training_set_index],\
+                    :]
+            batch_y[batch_index, :] =\
+                    dataset['training_labels'][dataset_index_list[training_set_index],\
+                    :]
+            training_set_index += 1
 
         (_, l) = session.run([train_step, cross_entropy],\
                 feed_dict={inputs : batch_x,\
@@ -90,5 +80,12 @@ if __name__ == "__main__":
 
     accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32))
 
-    print(session.run(accuracy, feed_dict={inputs : dataset['test_set'],\
+    print("training accuracy:", session.run(accuracy,\
+            feed_dict={inputs : dataset['training_set'],\
+            outputs_actual : dataset['training_labels']}))
+    print("validation accuracy:", session.run(accuracy,\
+            feed_dict={inputs : dataset['validation_set'],\
+            outputs_actual : dataset['validation_labels']}))
+    print("test accuracy:", session.run(accuracy,\
+            feed_dict={inputs : dataset['test_set'],\
             outputs_actual : dataset['test_labels']}))
