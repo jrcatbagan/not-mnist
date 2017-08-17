@@ -43,7 +43,12 @@ if __name__ == "__main__":
 
     session = tf.Session()
 
+    writer = tf.summary.FileWriter("./log-tensorflow-linear", session.graph)
+
     session.run(init)
+
+    cross_entropy_summary = tf.summary.scalar("cross entropy",\
+            cross_entropy)
 
     print("training")
     batch_x = np.ndarray((TRAINING_BATCH_SIZE, IMAGE_PIXEL_WIDTH *\
@@ -73,7 +78,11 @@ if __name__ == "__main__":
                 feed_dict={inputs : batch_x,\
                 outputs_actual : batch_y})
 
-        print("iteration:", iteration_index, " - ", "loss:", l)
+        if iteration_index % 100 == 0:
+            print("iteration:", iteration_index, " - ", "loss:", l)
+            s = session.run(cross_entropy_summary, feed_dict=\
+                    {inputs : batch_x, outputs_actual : batch_y})
+            writer.add_summary(s, iteration_index)
 
     cross_prediction = tf.equal(tf.argmax(outputs_prediction, 1),\
             tf.argmax(outputs_actual, 1))
