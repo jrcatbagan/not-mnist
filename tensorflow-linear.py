@@ -50,6 +50,14 @@ if __name__ == "__main__":
     cross_entropy_summary = tf.summary.scalar("cross entropy",\
             cross_entropy)
 
+    cross_prediction = tf.equal(tf.argmax(outputs_prediction, 1),\
+            tf.argmax(outputs_actual, 1))
+    accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32))
+
+    accuracy_summary = tf.summary.scalar("accuracy", accuracy)
+
+    merged_summaries = tf.summary.merge_all()
+
     print("training")
     batch_x = np.ndarray((TRAINING_BATCH_SIZE, IMAGE_PIXEL_WIDTH *\
             IMAGE_PIXEL_HEIGHT))
@@ -80,7 +88,7 @@ if __name__ == "__main__":
 
         if iteration_index % 100 == 0:
             print("iteration:", iteration_index, " - ", "loss:", l)
-            s = session.run(cross_entropy_summary, feed_dict=\
+            s = session.run(merged_summaries, feed_dict=\
                     {inputs : batch_x, outputs_actual : batch_y})
             writer.add_summary(s, iteration_index)
 
