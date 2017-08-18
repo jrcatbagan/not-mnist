@@ -12,6 +12,7 @@ IMAGE_PIXEL_WIDTH   = 28
 IMAGE_PIXEL_HEIGHT  = 28
 HIDDEN_NEURON_COUNT = 1024
 NUMBER_OF_CLASSES   = 10
+LEARNING_RATE       = 0.05
 
 if __name__ == "__main__":
     pickle_file_path = os.path.join(ROOT_DIRECTORY, 'dataset.pickle')
@@ -50,7 +51,7 @@ if __name__ == "__main__":
             tf.log(outputs_prediction), reduction_indices=[1])))
 
     train_step =\
-            tf.train.GradientDescentOptimizer(1E-4).minimize(cross_entropy)
+            tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cross_entropy)
 
     init = tf.global_variables_initializer()
 
