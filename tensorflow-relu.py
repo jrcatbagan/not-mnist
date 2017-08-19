@@ -15,15 +15,16 @@ import random
 # ------------------------------------------------------------------------------
 # Constant Parameters
 
-ROOT_DIRECTORY      = '.'
-TRAINING_ITERATIONS = 5000
-TRAINING_BATCH_SIZE = 256
-IMAGE_PIXEL_WIDTH   = 28
-IMAGE_PIXEL_HEIGHT  = 28
-NUMBER_OF_PIXELS    = IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT
-HIDDEN_NEURON_COUNT = 1024
-NUMBER_OF_CLASSES   = 10
-LEARNING_RATE       = 0.003
+ROOT_DIRECTORY       = '.'
+TRAINING_ITERATIONS  = 5000
+TRAINING_BATCH_SIZE  = 256
+IMAGE_PIXEL_WIDTH    = 28
+IMAGE_PIXEL_HEIGHT   = 28
+NUMBER_OF_PIXELS     = IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT
+HIDDEN_NEURON_COUNT  = 1024
+NUMBER_OF_CLASSES    = 10
+LEARNING_RATE        = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1, 0.3, 0.5]
+REGULARIZED_CONSTANT = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1, 0.3, 0.5]
 
 # ------------------------------------------------------------------------------
 # Main Logic
@@ -63,15 +64,15 @@ if __name__ == "__main__":
         cross_entropy = tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
                 tf.log(outputs_prediction), reduction_indices=[1])))
         cross_entropy_regularized = cross_entropy +\
-                (0.01 * tf.sqrt(tf.nn.l2_loss(weights_1))) +\
-                (0.01 * tf.sqrt(tf.nn.l2_loss(weights_2)))
+                (0.01 * tf.nn.l2_loss(weights_1)) +\
+                (0.01 * tf.nn.l2_loss(weights_2))
         cross_prediction = tf.equal(tf.argmax(outputs_prediction, 1),\
                 tf.argmax(outputs_actual, 1))
         accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32),\
                 name="accuracy")
 
     # Optimizer
-    train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE).\
+    train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE[0]).\
             minimize(cross_entropy)
 
     # Tensorflow Session
