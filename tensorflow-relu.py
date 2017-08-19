@@ -16,15 +16,15 @@ import random
 # Constant Parameters
 
 ROOT_DIRECTORY       = '.'
-TRAINING_ITERATIONS  = 5000
+TRAINING_ITERATIONS  = 3500
 TRAINING_BATCH_SIZE  = 256
 IMAGE_PIXEL_WIDTH    = 28
 IMAGE_PIXEL_HEIGHT   = 28
 NUMBER_OF_PIXELS     = IMAGE_PIXEL_WIDTH * IMAGE_PIXEL_HEIGHT
 HIDDEN_NEURON_COUNT  = 1024
 NUMBER_OF_CLASSES    = 10
-LEARNING_RATE        = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1, 0.3, 0.5]
-REGULARIZED_CONSTANT = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1, 0.3, 0.5]
+LEARNING_RATE        = [0.01, 0.03, 0.05, 0.1, 0.3, 0.5]
+REGULARIZED_CONSTANT = [0.0, 0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
 
 # ------------------------------------------------------------------------------
 # Main Logic
@@ -34,6 +34,9 @@ if __name__ == "__main__":
     pickle_file_path = os.path.join(ROOT_DIRECTORY, 'dataset.pickle')
     pickle_file_handle = open(pickle_file_path, 'rb')
     dataset = pickle.load(pickle_file_handle)
+
+    learning_rate = tf.placeholder(tf.float32, shape=())
+    regularized_constant = tf.placeholder(tf.float32, shape=())
 
     # Input Layer
     with tf.name_scope("input_layer"):
@@ -61,18 +64,19 @@ if __name__ == "__main__":
 
     # Metrics
     with tf.name_scope("metrics"):
-        cross_entropy = tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
+        cross_entropy_before_regularization =\
+                tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
                 tf.log(outputs_prediction), reduction_indices=[1])))
-        cross_entropy_regularized = cross_entropy +\
-                (0.01 * tf.nn.l2_loss(weights_1)) +\
-                (0.01 * tf.nn.l2_loss(weights_2))
+        cross_entropy = cross_entropy_before_regularization +\
+                (regularized_constant * tf.nn.l2_loss(weights_1)) +\
+                (regularized_constant * tf.nn.l2_loss(weights_2))
         cross_prediction = tf.equal(tf.argmax(outputs_prediction, 1),\
                 tf.argmax(outputs_actual, 1))
         accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32),\
                 name="accuracy")
 
     # Optimizer
-    train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE[0]).\
+    train_step = tf.train.GradientDescentOptimizer(learning_rate).\
             minimize(cross_entropy)
 
     # Tensorflow Session
@@ -111,38 +115,45 @@ if __name__ == "__main__":
     dataset_index_list = [n for n in range(training_set_length)]
     random.shuffle(dataset_index_list)
 
-    # Training Iterations
-    for iteration_index in range(TRAINING_ITERATIONS):
-        # Determine if we need to reset the index to the training set
-        if training_set_index >= TRAINING_BATCH_SIZE:
-            training_set_index = 0
+    for alpha in LEARNING_RATE:
+        for lambda_ in REGULARIZED_CONSTANT:
+            writer = tf.summary.FileWriter("./not-mnist-log/" + "alpha" +\
+                    str(alpha) + "lambda_" + str(lambda_))
 
-        # Consilate the examples to be included in the next batch for training
-        for batch_index in range(TRAINING_BATCH_SIZE):
-            batch_x[batch_index, :] =\
-                    dataset['training_set'][dataset_index_list[training_set_index],\
-                    :]
-            batch_y[batch_index, :] =\
-                    dataset['training_labels'][dataset_index_list[training_set_index],\
-                    :]
-            training_set_index += 1
+            session.run(init)
 
-        (_, l, a) = session.run([train_step, cross_entropy, accuracy],\
-                feed_dict={inputs : batch_x,\
-                outputs_actual : batch_y})
+            # Training Iterations
+            for iteration_index in range(TRAINING_ITERATIONS):
+                # Determine if we need to reset the index to the training set
+                if training_set_index >= TRAINING_BATCH_SIZE:
+                    training_set_index = 0
 
-        if iteration_index % 100 == 0:
-            print("iteration:", iteration_index, "training loss:", l,\
-                    "accuracy:", a)
-            summary_training_run = session.run(summary_training, feed_dict=\
-                    {inputs : batch_x, outputs_actual : batch_y})
-            writer.add_summary(summary_training_run, iteration_index)
-            summary_validation_run = session.run(summary_validation, feed_dict=\
-                    {inputs : dataset['validation_set'],\
-                    outputs_actual : dataset['validation_labels']})
-            writer.add_summary(summary_validation_run, iteration_index)
+                # Consilate the examples to be included in the next batch for training
+                for batch_index in range(TRAINING_BATCH_SIZE):
+                    batch_x[batch_index, :] =\
+                            dataset['training_set'][dataset_index_list[training_set_index],\
+                            :]
+                    batch_y[batch_index, :] =\
+                            dataset['training_labels'][dataset_index_list[training_set_index],\
+                            :]
+                    training_set_index += 1
 
-    print(session.run(cross_prediction, feed_dict={inputs : dataset['test_set'],\
-            outputs_actual : dataset['test_labels']}))
-    print(session.run(accuracy, feed_dict={inputs : dataset['test_set'],\
-            outputs_actual : dataset['test_labels']}))
+                (_, l, a) = session.run([train_step, cross_entropy, accuracy],\
+                        feed_dict={inputs : batch_x,\
+                        outputs_actual : batch_y, learning_rate : alpha,\
+                        regularized_constant : lambda_})
+
+                if iteration_index % 100 == 0:
+                    print("iteration:", iteration_index, "training loss:", l,\
+                            "accuracy:", a)
+                    summary_training_run = session.run(summary_training, feed_dict=\
+                            {inputs : batch_x, outputs_actual : batch_y,\
+                            learning_rate : alpha, regularized_constant : lambda_})
+                    writer.add_summary(summary_training_run, iteration_index)
+                    summary_validation_run = session.run(summary_validation, feed_dict=\
+                            {inputs : dataset['validation_set'],\
+                            outputs_actual : dataset['validation_labels'],\
+                            learning_rate : alpha, regularized_constant : lambda_})
+                    writer.add_summary(summary_validation_run, iteration_index)
+
+    print("Training all models complete")
