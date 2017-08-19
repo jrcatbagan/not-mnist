@@ -93,12 +93,13 @@ if __name__ == "__main__":
                 tf.summary.scalar("cross entropy", cross_entropy)
         summary_training = tf.summary.merge([summary_training_accuracy,\
                 summary_training_cross_entropy])
-    summary_validation_accuracy =\
-            tf.summary.scalar("validation accuracy", accuracy)
-    summary_validation_cross_entropy =\
-            tf.summary.scalar("validation cross entropy", cross_entropy)
-    summary_validation = tf.summary.merge([summary_validation_accuracy,\
-            summary_validation_cross_entropy], name="validation")
+    with tf.name_scope("validation"):
+        summary_validation_accuracy =\
+                tf.summary.scalar("accuracy", accuracy)
+        summary_validation_cross_entropy =\
+                tf.summary.scalar("cross entropy", cross_entropy)
+        summary_validation = tf.summary.merge([summary_validation_accuracy,\
+                summary_validation_cross_entropy])
 
     # Initialize where a batch of training dataset will be stored
     batch_x = np.ndarray((TRAINING_BATCH_SIZE, NUMBER_OF_PIXELS))
