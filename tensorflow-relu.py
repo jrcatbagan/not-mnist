@@ -50,6 +50,7 @@ if __name__ == "__main__":
     # Hidden Layer
     with tf.name_scope("hidden_layer"):
         hidden_layer = tf.nn.relu(outputs_1, name="hidden")
+        hidden_layer_dropout = tf.nn.dropout(hidden_layer, 0.5)
 
     # Output Layer
     with tf.name_scope("output_layer"):
@@ -57,27 +58,41 @@ if __name__ == "__main__":
                 NUMBER_OF_CLASSES], stddev=0.1), name="W")
         bias_2 = tf.Variable(tf.truncated_normal([NUMBER_OF_CLASSES],\
                 stddev=0.1), name="B")
-        outputs_prediction = tf.nn.softmax(tf.matmul(hidden_layer, weights_2) +\
-                bias_2)
+        outputs_training_prediction = tf.nn.softmax(tf.matmul(hidden_layer_dropout,\
+                weights_2) + bias_2)
+        outputs_prediction = tf.nn.softmax(tf.matmul(hidden_layer,\
+                weights_2) + bias_2)
         outputs_actual = tf.placeholder(tf.float32, [None, NUMBER_OF_CLASSES],\
                 name="labels")
 
     # Metrics
     with tf.name_scope("metrics"):
-        cross_entropy_before_regularization =\
+        cross_entropy_training =\
+                tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
+                tf.log(outputs_training_prediction), reduction_indices=[1])))
+        cross_entropy =\
                 tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
                 tf.log(outputs_prediction), reduction_indices=[1])))
-        cross_entropy = cross_entropy_before_regularization +\
+        cross_entropy_training_regularized = cross_entropy_training+\
                 (regularized_constant * tf.nn.l2_loss(weights_1)) +\
                 (regularized_constant * tf.nn.l2_loss(weights_2))
-        cross_prediction = tf.equal(tf.argmax(outputs_prediction, 1),\
+        cross_entropy_regularized = cross_entropy +\
+                (regularized_constant * tf.nn.l2_loss(weights_1)) +\
+                (regularized_constant * tf.nn.l2_loss(weights_2))
+        cross_prediction_training =\
+                tf.equal(tf.argmax(outputs_training_prediction, 1),\
+                tf.argmax(outputs_actual, 1))
+        accuracy_training = tf.reduce_mean(tf.cast(cross_prediction_training, tf.float32),\
+                name="accuracy")
+        cross_prediction =\
+                tf.equal(tf.argmax(outputs_prediction, 1),\
                 tf.argmax(outputs_actual, 1))
         accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32),\
                 name="accuracy")
 
     # Optimizer
     train_step = tf.train.GradientDescentOptimizer(learning_rate).\
-            minimize(cross_entropy)
+            minimize(cross_entropy_training_regularized)
 
     # Tensorflow Session
     session = tf.Session()
@@ -93,16 +108,17 @@ if __name__ == "__main__":
     # Write any additional parameters/metrics
     with tf.name_scope("training"):
         summary_training_accuracy =\
-                tf.summary.scalar("accuracy", accuracy)
+                tf.summary.scalar("accuracy", accuracy_training)
         summary_training_cross_entropy =\
-                tf.summary.scalar("cross entropy", cross_entropy)
+                tf.summary.scalar("cross entropy",\
+                cross_entropy_training_regularized)
         summary_training = tf.summary.merge([summary_training_accuracy,\
                 summary_training_cross_entropy])
     with tf.name_scope("validation"):
         summary_validation_accuracy =\
                 tf.summary.scalar("accuracy", accuracy)
         summary_validation_cross_entropy =\
-                tf.summary.scalar("cross entropy", cross_entropy)
+                tf.summary.scalar("cross entropy", cross_entropy_regularized)
         summary_validation = tf.summary.merge([summary_validation_accuracy,\
                 summary_validation_cross_entropy])
 
@@ -120,6 +136,7 @@ if __name__ == "__main__":
             writer = tf.summary.FileWriter("./not-mnist-log/" + "alpha" +\
                     str(alpha) + "lambda_" + str(lambda_))
 
+            print("training with: alpha =", alpha, "-- lambda =", lambda_)
             session.run(init)
 
             # Training Iterations
@@ -138,14 +155,12 @@ if __name__ == "__main__":
                             :]
                     training_set_index += 1
 
-                (_, l, a) = session.run([train_step, cross_entropy, accuracy],\
+                session.run([train_step],\
                         feed_dict={inputs : batch_x,\
                         outputs_actual : batch_y, learning_rate : alpha,\
                         regularized_constant : lambda_})
 
                 if iteration_index % 100 == 0:
-                    print("iteration:", iteration_index, "training loss:", l,\
-                            "accuracy:", a)
                     summary_training_run = session.run(summary_training, feed_dict=\
                             {inputs : batch_x, outputs_actual : batch_y,\
                             learning_rate : alpha, regularized_constant : lambda_})
