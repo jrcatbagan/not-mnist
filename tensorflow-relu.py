@@ -41,58 +41,56 @@ if __name__ == "__main__":
     # Input Layer
     with tf.name_scope("input_layer"):
         inputs = tf.placeholder(tf.float32, [None, NUMBER_OF_PIXELS], name="X")
-        weights_1 = tf.Variable(tf.truncated_normal([NUMBER_OF_PIXELS,\
+        inputs_reshaped = tf.reshape(inputs, [-1, 28, 28, 1])
+        weights_input_to_h1 =\
+                tf.Variable(tf.truncated_normal([NUMBER_OF_PIXELS,\
                 HIDDEN_NEURON_COUNT], stddev=0.1), name="W")
-        bias_1 = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT],\
+        bias_input_to_h1 = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT],\
                 stddev=0.1), name="B")
-        outputs_1 = tf.matmul(inputs, weights_1) + bias_1
+        h1_in = tf.matmul(inputs, weights_input_to_h1) + bias_input_to_h1
 
-    # Hidden Layer
-    with tf.name_scope("hidden_layer"):
-        hidden_layer = tf.nn.relu(outputs_1, name="hidden")
-        hidden_layer_dropout = tf.nn.dropout(hidden_layer, 0.5)
+    # Hidden Layer 1
+    with tf.name_scope("hidden_layer_1"):
+        h1 = tf.nn.relu(h1_in, name="hidden")
+        weights_h1_to_h2 = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT,\
+                HIDDEN_NEURON_COUNT], stddev=0.1), name="W")
+        bias_h1_to_h2 = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT],\
+                stddev=0.1), name="B")
+        h2_in = tf.matmul(h1, weights_h1_to_h2) + bias_h1_to_h2
+
+    # Hidden Layer 2
+    with tf.name_scope("hidden_layer_2"):
+        h2 = tf.nn.relu(h2_in)
+        weights_h2_to_output = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT,\
+                NUMBER_OF_CLASSES], stddev=0.1))
+        bias_h2_to_output = tf.Variable(tf.truncated_normal([NUMBER_OF_CLASSES],\
+                stddev=0.1))
+        output_in = tf.matmul(h2, weights_h2_to_output) + bias_h2_to_output
 
     # Output Layer
     with tf.name_scope("output_layer"):
-        weights_2 = tf.Variable(tf.truncated_normal([HIDDEN_NEURON_COUNT,\
-                NUMBER_OF_CLASSES], stddev=0.1), name="W")
-        bias_2 = tf.Variable(tf.truncated_normal([NUMBER_OF_CLASSES],\
-                stddev=0.1), name="B")
-        outputs_training_prediction = tf.nn.softmax(tf.matmul(hidden_layer_dropout,\
-                weights_2) + bias_2)
-        outputs_prediction = tf.nn.softmax(tf.matmul(hidden_layer,\
-                weights_2) + bias_2)
-        outputs_actual = tf.placeholder(tf.float32, [None, NUMBER_OF_CLASSES],\
+        output = output_in
+        output_actual = tf.placeholder(tf.float32, [None, NUMBER_OF_CLASSES],\
                 name="labels")
 
     # Metrics
     with tf.name_scope("metrics"):
-        cross_entropy_training =\
-                tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
-                tf.log(outputs_training_prediction), reduction_indices=[1])))
         cross_entropy =\
-                tf.reduce_mean((-1.0 * tf.reduce_sum(outputs_actual *\
-                tf.log(outputs_prediction), reduction_indices=[1])))
-        cross_entropy_training_regularized = cross_entropy_training+\
-                (regularized_constant * tf.nn.l2_loss(weights_1)) +\
-                (regularized_constant * tf.nn.l2_loss(weights_2))
+                tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(\
+                labels=output_actual, logits=output))
         cross_entropy_regularized = cross_entropy +\
-                (regularized_constant * tf.nn.l2_loss(weights_1)) +\
-                (regularized_constant * tf.nn.l2_loss(weights_2))
-        cross_prediction_training =\
-                tf.equal(tf.argmax(outputs_training_prediction, 1),\
-                tf.argmax(outputs_actual, 1))
-        accuracy_training = tf.reduce_mean(tf.cast(cross_prediction_training, tf.float32),\
-                name="accuracy")
+                (regularized_constant * tf.nn.l2_loss(weights_input_to_h1)) +\
+                (regularized_constant * tf.nn.l2_loss(weights_h1_to_h2)) +\
+                (regularized_constant * tf.nn.l2_loss(weights_h2_to_output))
         cross_prediction =\
-                tf.equal(tf.argmax(outputs_prediction, 1),\
-                tf.argmax(outputs_actual, 1))
+                tf.equal(tf.argmax(output, 1),\
+                tf.argmax(output_actual, 1))
         accuracy = tf.reduce_mean(tf.cast(cross_prediction, tf.float32),\
                 name="accuracy")
 
     # Optimizer
     train_step = tf.train.GradientDescentOptimizer(learning_rate).\
-            minimize(cross_entropy_training_regularized)
+            minimize(cross_entropy_regularized)
 
     # Tensorflow Session
     session = tf.Session()
@@ -108,17 +106,19 @@ if __name__ == "__main__":
     # Write any additional parameters/metrics
     with tf.name_scope("training"):
         summary_training_accuracy =\
-                tf.summary.scalar("accuracy", accuracy_training)
+                tf.summary.scalar("accuracy", accuracy)
         summary_training_cross_entropy =\
                 tf.summary.scalar("cross entropy",\
-                cross_entropy_training_regularized)
+                cross_entropy_regularized)
+        summary_training_image = tf.summary.image("input_image",\
+                inputs_reshaped)
         summary_training = tf.summary.merge([summary_training_accuracy,\
-                summary_training_cross_entropy])
+                summary_training_cross_entropy, summary_training_image])
     with tf.name_scope("validation"):
         summary_validation_accuracy =\
                 tf.summary.scalar("accuracy", accuracy)
         summary_validation_cross_entropy =\
-                tf.summary.scalar("cross entropy", cross_entropy_regularized)
+                tf.summary.scalar("cross entropy", cross_entropy)
         summary_validation = tf.summary.merge([summary_validation_accuracy,\
                 summary_validation_cross_entropy])
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
             # Training Iterations
             for iteration_index in range(TRAINING_ITERATIONS):
                 # Determine if we need to reset the index to the training set
-                if training_set_index >= TRAINING_BATCH_SIZE:
+                if training_set_index >= training_set_length:
                     training_set_index = 0
 
                 # Consilate the examples to be included in the next batch for training
@@ -157,17 +157,17 @@ if __name__ == "__main__":
 
                 session.run([train_step],\
                         feed_dict={inputs : batch_x,\
-                        outputs_actual : batch_y, learning_rate : alpha,\
+                        output_actual : batch_y, learning_rate : alpha,\
                         regularized_constant : lambda_})
 
-                if iteration_index % 100 == 0:
+                if iteration_index % 10 == 0:
                     summary_training_run = session.run(summary_training, feed_dict=\
-                            {inputs : batch_x, outputs_actual : batch_y,\
+                            {inputs : batch_x, output_actual : batch_y,\
                             learning_rate : alpha, regularized_constant : lambda_})
                     writer.add_summary(summary_training_run, iteration_index)
                     summary_validation_run = session.run(summary_validation, feed_dict=\
                             {inputs : dataset['validation_set'],\
-                            outputs_actual : dataset['validation_labels'],\
+                            output_actual : dataset['validation_labels'],\
                             learning_rate : alpha, regularized_constant : lambda_})
                     writer.add_summary(summary_validation_run, iteration_index)
 
