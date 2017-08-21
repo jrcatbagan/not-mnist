@@ -129,7 +129,7 @@ if __name__ == "__main__":
                         dataset_image_files[dataset_base_index +\
                         dataset_image_index])).astype(float)
 
-            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+            dataset_image = (dataset_image - IMAGE_PIXEL_DEPTH / 2) /\
                     IMAGE_PIXEL_DEPTH
             training_set[training_set_index, :] = dataset_image.flatten()
             training_labels[training_set_index, :] =\
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                         dataset_image_files[dataset_base_index +\
                         dataset_image_index])).astype(float)
 
-            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+            dataset_image = (dataset_image - IMAGE_PIXEL_DEPTH / 2) /\
                     IMAGE_PIXEL_DEPTH
             validation_set[validation_set_index, :] = dataset_image.flatten()
             validation_labels[validation_set_index, :] =\
@@ -179,7 +179,7 @@ if __name__ == "__main__":
                         dataset_image_files[dataset_base_index +\
                         dataset_image_index])).astype(float)
 
-            dataset_image = ((dataset_image - IMAGE_PIXEL_DEPTH) / 2) /\
+            dataset_image = (dataset_image - IMAGE_PIXEL_DEPTH / 2) /\
                     IMAGE_PIXEL_DEPTH
             test_set[test_set_index, :] = dataset_image.flatten()
             test_labels[test_set_index, :] =\
